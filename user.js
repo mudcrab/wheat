@@ -1,52 +1,93 @@
 (function() {
-	var ServerManager = require('./servermanager.js');
-	var User = function(username)
+	var irc = require('irc');
+	var Events = require('minivents');
+
+	var User = function(username, password, events)
 	{
-		this.clients = [];
-		this.servers = new ServerManager();
+		this.sockets = [];
+		this.servers = {};
+		this.events = events;
+
 		this.username = username;
+		this.password = password;
 	};
 
-	User.prototype.addServer = function(name, address, ircUser, uData)
-	{
-		// ircUser.socketUser = this.username;
-		uData.socketUser = this.username;
-		uData.username = ircUser;
-		return this.servers.connect(name, address, uData);
-	};
-
-	User.prototype.getServer = function(serverName)
-	{
-		return this.servers.getServerConnection(serverName);
-	};
-
-	User.prototype.removeServer = function(serverName)
-	{
-		this.servers.disconnect(serverName);
-	};
-
-	User.prototype.addSocket = function(client)
+	User.prototype.loadServer = function(server)
 	{
 		var self = this;
-		var ret = true;
-		this.clients.forEach(function(_client) {
-			if(_client == client)
-				ret = false;
+		console.log('Loading server "%s"', server.name);
+
+		this.servers[server.name] = new irc.Client(server.addr, server.nick, {
+			channels: server.channels,
+			realName: server.nick, 
+			userName: server.nick
 		});
-		if(ret)
-			self.clients.push(client);
 
-		return ret;
+		this.servers[server.name].addListener('error', function(message) {
+			console.log(message);
+		});
+
+		this.servers[server.name].addListener('message', function(f, t, m) {
+			self.events.emit('irc.say', {
+				server: server.name,
+				user: self.username,
+				data: {
+					from: f,
+					to: t,
+					message: m
+				}
+			});
+		});
 	};
 
-	User.prototype.getSockets = function()
+	User.prototype.join = function(serverName, channel, cb)
 	{
-		return this.clients;
+		this.getIrc(serverName).join(channel, cb());
 	};
 
-	User.prototype.removeSocket = function()
+	User.prototype.send = function(serverName, channel, message)
 	{
+		var self = this;
+		if(this.servers[serverName] != 'undefined')
+		{
+			this.servers[serverName].say(channel, message);
+			this.events.emit('irc.say', {
+				server: serverName,
+				user: self.username,
+				data: {
+					from: self.username,
+					to: channel,
+					message: message
+				}
+			});
+		}
+	};
 
+	User.prototype.authenticate = function(socket)
+	{
+		console.log('User %s authenticated', this.username);
+		this.sockets.push(socket);
+	};
+
+	User.prototype.removeSocket = function(socket)
+	{
+		var self = this;
+		this.sockets.forEach(function(_socket, i) {
+			if(_socket == socket)
+			{
+				console.log('Removing socket for "%s"', self.username);
+				self.sockets.splice(i, 1);
+			}
+		});
+	};
+
+	User.prototype.getIrc = function(serverName)
+	{
+		var server = this.servers[serverName];
+		if(typeof server == 'undefined')
+			return false;
+		else
+			return server;
 	};
 
 	module.exports = User;
