@@ -6,6 +6,7 @@
 	{
 		this.sockets = [];
 		this.servers = {};
+		this.log = {};
 		this.events = events;
 
 		this.username = username;
@@ -23,21 +24,45 @@
 			userName: server.nick
 		});
 
+		self.log[server.name] = {};
+		server.channels.forEach(function(channel) {
+			self.log[server.name][channel] = [];
+		});
+
 		this.servers[server.name].addListener('error', function(message) {
 			console.log(message);
 		});
 
 		this.servers[server.name].addListener('message', function(f, t, m) {
+			var mData = {
+				from: f,
+				to: t,
+				message: m
+			};
+			self.updateLog(server.name, mData);
 			self.events.emit('irc.say', {
 				server: server.name,
 				user: self.username,
-				data: {
-					from: f,
-					to: t,
-					message: m
-				}
+				data: mData
 			});
 		});
+	};
+
+	User.prototype.updateLog = function(server, data)
+	{
+		if(this.log[server][data.to].length == 100)
+			this.log[server][data.to].shift();
+		this.log[server][data.to].push(data);
+	};
+
+	User.prototype.getChannelLog = function(server, channel)
+	{
+		return this.log[server][channel];
+	};
+
+	User.prototype.getServerLog = function(server)
+	{
+		return this.log[server];
 	};
 
 	User.prototype.join = function(serverName, channel, cb)

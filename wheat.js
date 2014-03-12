@@ -1,5 +1,5 @@
 var WebSocketServer = require('ws').Server;
-var wss = new WebSocketServer({port: 8081});
+var wss = new WebSocketServer({port: 1337});
 var Events = require('minivents');
 var u = require('./users.js');
 
@@ -7,17 +7,25 @@ var Ev = new Events();
 var Users = new u(Ev);
 
 wss.on('connection', function(ws) {
+	ws.send(JSON.stringify({ type: 'connected' }));
 	ws.on('message', function(message) {
 		var m = JSON.parse(message);
 		Ev.emit('socket.' + m.type, { resp: m.data, socket: ws });
 	});
 	ws.on('close', function() {
+		console.log('client disconnected');
 		Users.removeSocket(ws);
 	});
 });
 
 Ev.on('socket.auth', function(data) {
-	Users.getUser(data.resp.username, data.resp.password).authenticate(data.socket);
+	var user = Users.getUser(data.resp.username, data.resp.password);
+	if(user)
+	{
+		user.authenticate(data.socket);
+		data.socket.send(JSON.stringify({ type: 'authenticated' }));
+		data.socket.send(JSON.stringify({ type: 'chanlog', data: user.getServerLog('local') }));
+	}
 });
 
 Ev.on('socket.join', function(data) {
