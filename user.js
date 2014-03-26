@@ -22,12 +22,25 @@
 			channels: server.channels,
 			realName: server.nick, 
 			userName: server.nick
+//            debug: true
 		});
 
 		self.log[server.name] = {};
 		server.channels.forEach(function(channel) {
 			self.log[server.name][channel] = [];
 		});
+
+        this.servers[server.name].addListener('registered', function(_data) {
+            self.events.emit('irc.connected', { server: { name: server.name, data: _data }, users: self.sockets });
+        });
+
+        this.servers[server.name].addListener('raw', function(raw) {
+//            console.log(raw);
+        });
+
+        this.servers[server.name].addListener('join', function(channel, nick) {
+            self.events.emit('irc.join', { channel: channel, nick: nick });
+        });
 
 		this.servers[server.name].addListener('error', function(message) {
 			console.log(message);
@@ -37,53 +50,63 @@
 			var mData = {
 				from: f,
 				to: t,
-				message: m
+				message: m,
+                server: server.name
 			};
 			self.updateLog(server.name, mData);
 			self.events.emit('irc.say', {
 				server: server.name,
-				user: self.username,
+				users: self.sockets,
 				data: mData
 			});
 		});
 	};
 
-	User.prototype.updateLog = function(server, data)
+    User.prototype.disconnect = function(serverName)
+    {
+        this.getIrc(serverName).disconnect();
+    };
+
+	User.prototype.joinChannel = function(serverName, channel, cb)
 	{
-		if(this.log[server][data.to].length == 100)
-			this.log[server][data.to].shift();
-		this.log[server][data.to].push(data);
+		this.getIrc(serverName).join(channel);
+		this.log[serverName][channel] = this.log[serverName][channel] || [];
 	};
 
-	User.prototype.getChannelLog = function(server, channel)
-	{
-		return this.log[server][channel];
-	};
+    User.prototype.partChannel = function(serverName, channel)
+    {
+        this.getIrc(serverName).part(channel);
+    };
 
-	User.prototype.getServerLog = function(server)
-	{
-		return this.log[server];
-	};
+    User.prototype.setNick = function(serverName, newNick)
+    {
+        this.getIrc(serverName).send('NICK', newNick);
+    };
 
-	User.prototype.join = function(serverName, channel, cb)
-	{
-		this.getIrc(serverName).join(channel, cb());
-	};
+    User.prototype.listNicks = function(serverName, channel)
+    {
+//        this.getIrc(serverName).list()
+    };
 
 	User.prototype.send = function(serverName, channel, message)
 	{
 		var self = this;
 		if(this.servers[serverName] != 'undefined')
 		{
+			var mData = {
+				from: self.username,
+				to: channel,
+				message: message,
+				server: serverName
+			};
+
 			this.servers[serverName].say(channel, message);
+			self.updateLog(serverName, mData);
+			
 			this.events.emit('irc.say', {
 				server: serverName,
-				user: self.username,
-				data: {
-					from: self.username,
-					to: channel,
-					message: message
-				}
+                users: self.sockets,
+				data: mData
 			});
 		}
 	};
@@ -114,6 +137,54 @@
 		else
 			return server;
 	};
+
+    User.prototype.updateLog = function(server, data)
+    {
+    	this.log[server][data.to] = this.log[server][data.to] || [];
+
+    	this.log[server][data.to].push(data);
+        /*if(this.log[server][data.to].length == 100)
+            this.log[server][data.to].shift();
+        this.log[server][data.to].push(data);*/
+    };
+
+    User.prototype.getChannelLog = function(server, channel)
+    {
+        return this.log[server][channel];
+    };
+
+    User.prototype.getServerLog = function(server)
+    {
+        return this.log[server];
+    };
+
+    User.prototype.getServersLog = function()
+    {
+    	var list = {};
+
+    	for(var server in this.log)
+    	{
+    		if(this.log.hasOwnProperty(server))
+    		{
+    			list[server] = [];
+
+    			for(var chan in this.log[server])
+    			{
+    				if(this.log[server].hasOwnProperty(chan))
+    				{
+    					// console.log(this.log[server][chan])
+    					list[server].push({
+    						name: chan,
+    						message: 'none',
+    						history: this.log[server][chan]
+    					});
+    				}
+    			}
+    		}
+    	}
+
+    	return list;
+    }
 
 	module.exports = User;
 })();

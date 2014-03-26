@@ -15,14 +15,14 @@
 				username: 'jk',
 				password: 'asdf1234',
 				servers: [
-				{
-					name: 'local',
-					nick: 'jk',
-					addr: 'localhost',
-					channels: [
-					'#test'
-					]
-				}
+					{
+						name: 'local',
+						nick: 'jk',
+						addr: 'localhost',
+						channels: [
+						'#test'
+						]
+					}
 				]
 			}
 		];
