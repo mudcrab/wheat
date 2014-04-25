@@ -1,88 +1,74 @@
+/*
+	Users module, handles connected users
+*/
 (function() {
 
 	var User = require('./user.js');
+	var config = require('./config.js');
+	var util = require('util');
+	var Bookshelf  = require('bookshelf').DB;
 
-	var Users = function(events)
+
+	var UsersManager = function()
+	{
+		this.users = [];		
+
+		this.loadUsers();
+	};
+
+	UsersManager.prototype.loadUsers = function()
 	{
 		var self = this;
 
-		this.users = [];
-		this.events = events;
+		// console.log(Bookshelf)
 
-		var usrs = [
+		var Channel = config.db.connection.Model.extend({
+			tableName: 'channels'
+		});
+
+		var Server = config.db.connection.Model.extend({
+			tableName: 'servers',
+			channels: function()
 			{
-				id: 1,
-				username: 'jk',
-				password: 'asdf1234',
-				servers: [
-					{
-						name: 'local',
-						nick: 'jk',
-						addr: 'localhost',
-						channels: [
-						'#test'
-						]
-					}
-				]
+				return this.hasMany(Channel);
 			}
-		];
+		});
 
-		// load users
-		console.log('Loading %d user(s)', usrs.length);
-		usrs.forEach(function(user) {
-			self.users.push(new User(user.username, user.password, self.events));
+		var User = config.db.connection.Model.extend({
+			tableName: 'users',
+			servers: function()
+			{
+				return this.hasMany(Server);
+			}
+		})
 
-			user.servers.forEach(function(server) {
-				self.getUser(user.username, user.password).loadServer(server);
+		new User({ id: 1}).related('servers').fetch().then(function(data) {
+			data.models.forEach(function(model) {
+				model.related('channels').fetch().then(function(channels) {
+					channels.models.forEach(function(channel) {
+						console.log('%s => %s', model.get('name'), channel.get('name'))
+					});
+				});
 			});
 		});
+
 	};
 
-	Users.prototype.getUser = function(username, password)
+	UsersManager.prototype.loadUser = function(user)
 	{
-		var u = false;
-		this.users.forEach(function(user) {
-			if(user.username == username && user.password == password)
-				u = user;
-		});
-		return u;
+		this.users.push(new User(user.id, user.email, user.password));
 	};
 
-	Users.prototype.getUserBySocket = function(socket)
+	UsersManager.prototype.authenticate = function(username, password)
 	{
-		var u = false;
-		this.users.forEach(function(user) {
-			user.sockets.forEach(function(_socket) {
-				if(_socket == socket)
-					u = user;
-			})
-		});
-		return u;
+
 	};
 
-	Users.prototype.getAllUserSockets = function(username)
+	UsersManager.prototype.getUser = function()
 	{
-		var sockets = [];
-		this.users.forEach(function(user) {
-			if(user.username == username)
-				sockets = user.sockets;
-		});
 
-		return sockets;
 	};
 
-	Users.prototype.getAllUsers = function()
-	{
-		return this.users;
-	};
+	module.exports = UsersManager;
 
-	Users.prototype.removeSocket = function(socket)
-	{
-		var self = this;
-		this.users.forEach(function(user) {
-			user.removeSocket(socket);
-		});
-	};
-
-	module.exports = Users;
 })();

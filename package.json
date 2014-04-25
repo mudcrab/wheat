@@ -11,9 +11,10 @@
     "ws": "0.4",
     "node-irc": "0.0.3",
     "minivents": "1.1.1",
-    "orm": " >= 2.1",
     "mysql": "^2.0.0-alpha9",
-    "bcrypt-nodejs": "0.0.3"
+    "bcrypt-nodejs": "0.0.3",
+    "knex": "^0.5.13",
+    "bookshelf": "^0.6.10"
   },
   "devDependencies": {},
   "engine": "node >= 0.6.6"

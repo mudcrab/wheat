@@ -1,9 +1,10 @@
 var config = {
-	mysql: {
+	db: {
 		server: 'localhost',
 		username: 'multigrain',
 		password: 'multigrain',
-		db: 'multigrain'
+		db: 'multigrain',
+		connection: null
 	}
 };
 
