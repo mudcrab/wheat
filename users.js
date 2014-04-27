@@ -1,6 +1,9 @@
 /*
 	Users module, handles connected users
 */
+
+var db = require('./db.js');
+
 (function() {
 
 	var User = require('./user.js');
@@ -20,29 +23,21 @@
 	{
 		var self = this;
 
-		// console.log(Bookshelf)
+		/*new db.models.User({ email: 'blah@lol.com', password: 'lel' }).save().then(function(user) {
+			console.log(user);
+		})*/
 
-		var Channel = config.db.connection.Model.extend({
-			tableName: 'channels'
-		});
-
-		var Server = config.db.connection.Model.extend({
-			tableName: 'servers',
-			channels: function()
-			{
-				return this.hasMany(Channel);
-			}
-		});
-
-		var User = config.db.connection.Model.extend({
-			tableName: 'users',
-			servers: function()
-			{
-				return this.hasMany(Server);
-			}
+		db.models.User.collection().fetch().then(function(users) {
+			users.forEach(function(user) {
+				self.loadUser(user);
+			})
 		})
 
-		new User({ id: 1}).related('servers').fetch().then(function(data) {
+		/*new db.models.User().fetch().then(function(users) {
+			console.log(users)
+		})*/
+
+		/*new db.models.User({ id: 1}).related('servers').fetch().then(function(data) {
 			data.models.forEach(function(model) {
 				model.related('channels').fetch().then(function(channels) {
 					channels.models.forEach(function(channel) {
@@ -50,13 +45,13 @@
 					});
 				});
 			});
-		});
+		});*/
 
 	};
 
 	UsersManager.prototype.loadUser = function(user)
 	{
-		this.users.push(new User(user.id, user.email, user.password));
+		this.users.push(new User(user.get('id'), user.get('email'), user.get('password')));
 	};
 
 	UsersManager.prototype.authenticate = function(username, password)

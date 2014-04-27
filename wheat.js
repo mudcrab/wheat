@@ -3,19 +3,9 @@ var WebSocketServer = require('ws').Server;
 var wss = new WebSocketServer({port: 1337});
 var Events = require('minivents');
 var u = require('./users.js');
+var db = require('./db.js');
 
-var Bookshelf  = require('bookshelf');
 
-config.db.connection = Bookshelf.initialize({
-	client: 'mysql',
-	connection: {
-		host: config.db.server,
-		user: config.db.username,
-		password: config.db.password,
-		database: config.db.db,
-		charset: 'utf8'
-	}
-});
 
 
 
@@ -26,6 +16,7 @@ config.db.connection = Bookshelf.initialize({
 var Ev = new Events();
 // var Users = new u(Ev);
 var Users = new u();
+config.events = Ev;
 
 wss.on('connection', function(ws) {
 	ws.send(JSON.stringify({ type: 'connected' }));
