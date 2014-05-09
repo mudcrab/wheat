@@ -81,7 +81,10 @@ var irc = require('irc');
 				});
 			});
 
-			self.getLog('a', 'b');
+			self.getLog('local', '#test', 100, function(data) {
+				console.log(data);
+				self.joinChannel('local', '#asd');
+			});
 		});
 	};
 
@@ -109,6 +112,34 @@ var irc = require('irc');
 			return false;
 		else
 			return server;
+	};
+
+	/*
+		joins the channel and adds an entry to the database for future autojoin
+	*/
+
+	User.prototype.joinChannel = function(serverName, channel)
+	{
+		var self = this;
+		var server = this.getServer(serverName);
+		
+		if(!this.getChannel(channel, server.get('id')))
+		{
+			new db.models.Channel({ name: channel, server_id: server.get('id')}).save()
+			.then(function(model) {
+				self.getIrc(serverName).join(channel);
+				self.dbChannels.push(model);
+			});
+		}
+	};
+
+	/*
+		parts the channel and removes the entry from the database
+	*/
+
+	User.prototype.partChannel = function(serverName, channel)
+	{
+
 	};
 
 	User.prototype.updateLog = function(serverName, messageData)
@@ -154,18 +185,56 @@ var irc = require('irc');
 		});
 	};
 
-	User.prototype.getLog = function(serverName, channelName, lines)
+	User.prototype.getLog = function(serverName, channelName, lines, cb)
 	{
-		var messages = [];
-		db.models.Channel.forge({ id: 1}).fetch().then(function(channel) {
-			channel.related('logs').fetch().then(function(logs) {
-				logs.forEach(function(log) {
-					db.models.Messages.forge({ id: log.get('message_id') }).fetch().then(function(m) {
-						
-					});
-				});
+		db.models.Server.forge({ user_id: this.userInfo.id, name: serverName }).fetch().then(function(server) {
+			
+			db.connection.knex('logs')
+			.join('messages', 'messages.id', '=', 'logs.message_id')
+			.where('logs.channel_id', function() {
+				this.select('id').from('channels').where({ name: channelName, server_id: server.get('id') });
+			})
+			.limit(lines)
+			.select('messages.from', 'messages.message', 'messages.date').then(function(data) {
+				if(typeof cb == 'function')
+					cb(data);
 			});
+
 		});
+	};
+
+	/*
+		Get the server from dbServers array
+
+		@return server model || false
+	*/
+
+	User.prototype.getServer = function(serverName)
+	{
+		var server = false;
+		this.dbServers.forEach(function(_server) {
+			if(_server.get('name') === serverName)
+			{
+				server = _server;
+			}
+		});
+		return server;
+	};
+
+	/*
+		Get the channel from dbChannels array
+
+		@return channel model || false
+	*/
+
+	User.prototype.getChannel = function(channelName, serverId)
+	{
+		var channel = false;
+		this.dbChannels.forEach(function(_channel) {
+			if(_channel.get('name') === channelName && _channel.get('server_id') === serverId)
+				channel = _channel;
+		});
+		return channel;
 	};
 
 	module.exports = User;
