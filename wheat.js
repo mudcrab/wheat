@@ -23,6 +23,7 @@ wss.on('connection', function(ws) {
 	ws.on('message', function(message) {
 		var m = JSON.parse(message);
 		Ev.emit('socket.' + m.type, { resp: m.data, socket: ws });
+		console.log("[ SCK ] %s", m.type, m.data);
 	});
 	ws.on('close', function() {
 		console.log('client disconnected');
@@ -31,45 +32,44 @@ wss.on('connection', function(ws) {
 });
 
 Ev.on('socket.auth', function(data) {
-	// var user = Users.getUser(data.resp.username, data.resp.password);
-	console.log('auth')
-	// if(user)
-	// {
-		/*user.authenticate(data.socket);
+	var user = Users.findUser(data.resp.username, data.resp.password, data.socket);
+	if(user)
+	{
+		// /*user.authenticate(data.socket);
 		data.socket.send(JSON.stringify({ type: 'authenticated' }));
 		// data.socket.send(JSON.stringify({ type: 'chanlog', data: user.getServerLog('local') }));
 		data.socket.send(JSON.stringify({ type: 'chanlog', data: user.getServersLog() }));
-		data.socket.send(JSON.stringify({ type: 'servers', data: user.getServers() }));
-		console.log("%s authenticated", data.resp.username);*/
-	// }
+		// data.socket.send(JSON.stringify({ type: 'servers', data: user.getServers() }));
+		console.log("%s authenticated", data.resp.username);
+	}
 });
 
 Ev.on('socket.join', function(data) {
-	var user = Users.getUserBySocket(data.socket);
+	var user = Users.findUserBySocket(data.socket);
 	if(user)
 		user.joinChannel(data.resp.server, data.resp.channel);
 });
 
 Ev.on('socket.setNick', function(data) {
-	var user = Users.getUserBySocket(data.socket);
+	var user = Users.findUserBySocket(data.socket);
 	if(user)
 		user.setNick(data.resp.server, data.resp.nick);
 });
 
 Ev.on('socket.partChannel', function(data) {
-	var user = Users.getUserBySocket(data.socket);
+	var user = Users.findUserBySocket(data.socket);
 	if(user)
 		user.partChannel(data.resp.server, data.resp.channel);
 });
 
 Ev.on('socket.disconnect', function(data) {
-	var user = Users.getUserBySocket(data.socket);
+	var user = Users.findUserBySocket(data.socket);
 	if(user)
 		user.disconnect(data.server);
 });
 
 Ev.on('socket.say', function(data) {
-	Users.getUserBySocket(data.socket).send(data.resp.serverName, data.resp.channel, data.resp.message);
+	Users.findUserBySocket(data.socket).sendMessage(data.resp.serverName, data.resp.channel, data.resp.message);
 });
 
 Ev.on('irc.say', function(data) {
