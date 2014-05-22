@@ -28,6 +28,7 @@ var db = require('./db.js');
 		})*/
 
 		db.models.User.collection().fetch().then(function(users) {
+			console.log('loading %d user(s)', users.length)
 			users.forEach(function(user) {
 				self.loadUser(user);
 			})
@@ -51,7 +52,7 @@ var db = require('./db.js');
 
 	UsersManager.prototype.loadUser = function(user)
 	{
-		this.users.push(new User(user.get('id'), user.get('email'), user.get('password')));
+		this.users.push(new User(user));
 	};
 
 	UsersManager.prototype.authenticate = function(username, password)
@@ -59,9 +60,40 @@ var db = require('./db.js');
 
 	};
 
-	UsersManager.prototype.getUser = function()
+	UsersManager.prototype.findUser = function(username, password, socket)
 	{
+		var u = false;
+		this.users.forEach(function(user) {
+			if(user.model.get('email') === username && user.model.get('password') === password)
+			{
+				u = user;
+				user.addSocket(socket);
+			}
+		});
+		return u;
+	};
 
+	UsersManager.prototype.findUserBySocket = function(socket)
+	{
+		var self = this;
+		var user = false;
+
+		this.users.forEach(function(user_) {
+			user_.sockets.forEach(function(socket_) {
+				if(socket_ === socket)
+					user = user_;
+			});
+		});
+
+		return user;
+	};
+
+	UsersManager.prototype.removeSocket = function(socket)
+	{
+		var self = this;
+		this.users.forEach(function(user) {
+			user.removeSocket(socket);
+		});
 	};
 
 	module.exports = UsersManager;
