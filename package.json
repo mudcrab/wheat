@@ -1,21 +1,28 @@
 {
   "name": "multigrain",
   "description": "backend server for multigrain",
-  "author": "Jevgeni K <beichu@gmail.com>",
+  "author": "Jevgeni <jevgeni@pitfire.eu>",
   "version": "0.0.1",
   "repository": {
     "type": "git",
     "url": "git://github.com/mudcrab/multigrain-backend.git"
   },
   "dependencies": {
+    "bookshelf": "^0.7.6",
+    "db-migrate": "^0.6.4",
+    "knex": "^0.6.20",
+    "mocha": "^1.20.1",
+    "mysql": "^2.3.2",
     "ws": "0.4",
-    "node-irc": "0.0.3",
     "minivents": "1.1.1",
-    "mysql": "^2.0.0-alpha9",
-    "bcrypt-nodejs": "0.0.3",
-    "knex": "^0.5.13",
-    "bookshelf": "^0.6.10"
+    "node-irc": "0.0.3",
+    "bcrypt-nodejs": "0.0.3"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "gulp": "^3.8.5",
+    "gulp-mocha": "^0.4.1",
+    "gulp-nodemon": "^1.0.4",
+    "should": "^4.0.4"
+  },
   "engine": "node >= 0.6.6"
 }
