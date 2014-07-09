@@ -1,6 +1,6 @@
 var db = require('./db.js');
 var config = require('./config.js');
-var irc = require('irc');
+var irc = require('node-irc');
 
 (function() {
 	var Server = function(server, cb)
