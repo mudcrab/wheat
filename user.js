@@ -114,50 +114,20 @@ var Server = require('./server.js');
 		var log = {};
 		for(var server in this.servers)
 		{
-			if(this.servers.hasOwnProperty(server))
-			{
-				log[server] = [];
-
-				this.servers[server].channels.forEach(function(channel) {
-					this.servers[server].getLog(channel.get('name'), function(history) {
-						log[server].push({
-							name: channel.get('name'),
-							message: 'none',
-							history: history
-						});
+			var srv = this.getServer(server);
+			log[server] = [];
+			srv.channels.forEach(function(channel) {
+				srv.getLog(channel.get('name'), 100, function(history) {
+					log[server].push({
+						name: channel.get('name'),
+						message: 'none',
+						history: history
 					});
 				});
-			}
+			});
 		}
 		return log;
 	};
-
-	/*
-	var list = {};
-
-	    	for(var server in this.log)
-	    	{
-	    		if(this.log.hasOwnProperty(server))
-	    		{
-	    			list[server] = [];
-
-	    			for(var chan in this.log[server])
-	    			{
-	    				if(this.log[server].hasOwnProperty(chan))
-	    				{
-	    					// console.log(this.log[server][chan])
-	    					list[server].push({
-	    						name: chan,
-	    						message: 'none',
-	    						history: this.log[server][chan]
-	    					});
-	    				}
-	    			}
-	    		}
-	    	}
-
-	    	return list;
-	*/
 
 	User.prototype.updateLog = function(serverName, messageData)
 	{
