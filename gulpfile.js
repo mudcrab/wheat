@@ -7,8 +7,14 @@ function handleError(err) {
 	this.emit('end');
 }
 
+gulp.task('init', function() {
+	process.env['NODE_ENV'] = 'development';
+	nodemon({ script: 'wheat.js', ext: 'js', ignore: ['test/**'] });
+});
+
 gulp.task('test', function() {
-	gulp.src('test/test.js', { read: false })
+	process.env['NODE_ENV'] = 'test';
+	gulp.src('test/**/*.js', { read: false })
 		.pipe(mocha({ reporter: 'spec' }))
 		.on('error', handleError);
 });
@@ -18,12 +24,9 @@ gulp.task('runtest', function() {
 });
 
 gulp.task('watch', function() {
-  
-	nodemon({ script: 'server.js', ext: 'js', ignore: ['./test/**'] });
-	gulp.watch(['./test/*.js'], ['test']);
-	gulp.watch(['./**/*.js', 'server.js'], ['test']);
-
+	// console.log(arguments)
+	gulp.watch(['./**/*.js', './test/*.js', '!./node-modules/**'], { interval: 500 }, ['test']);
 });
 
 
-gulp.task('default', ['watch']);
+gulp.task('default', ['init', 'watch']);
