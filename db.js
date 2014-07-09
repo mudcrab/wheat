@@ -3,17 +3,19 @@ var config = require('./config.js');
 
 (function() {
 
+	var knex = require('knex')({
+		client: 'mysql',
+		connection: {
+			host: config.db.server,
+			user: config.db.username,
+			password: config.db.password,
+			database: config.db.db,
+			charset: 'utf8'
+		}
+	});
+
 	var db = {
-		connection: Bookshelf.initialize({
-			client: 'mysql',
-			connection: {
-				host: config.db.server,
-				user: config.db.username,
-				password: config.db.password,
-				database: config.db.db,
-				charset: 'utf8'
-			}
-		}),
+		connection: require('bookshelf')(knex),
 		models: {}
 	};
 

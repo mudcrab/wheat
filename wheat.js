@@ -1,22 +1,15 @@
 var config = require('./config.js');
 var WebSocketServer = require('ws').Server;
-var wss = new WebSocketServer({port: 1337});
+var wss = new WebSocketServer({ port: config.app.ports[process.env.NODE_ENV] || 1337 });
 var Events = require('minivents');
 var u = require('./users.js');
 var db = require('./db.js');
 
-
-
-
-
-
-
-// 
-
 var Ev = new Events();
-// var Users = new u(Ev);
 var Users = new u();
-config.events = Ev;
+config.events = Ev;	
+
+console.log('WHEAT', config.app.ports[process.env.NODE_ENV])
 
 wss.on('connection', function(ws) {
 	ws.send(JSON.stringify({ type: 'connected' }));
@@ -36,7 +29,7 @@ Ev.on('socket.auth', function(data) {
 	if(user)
 	{
 		// /*user.authenticate(data.socket);
-		data.socket.send(JSON.stringify({ type: 'authenticated' }));
+		data.socket.send(JSON.stringify({ type: 'auth', data: { status: 'authenticated' } }));
 		// data.socket.send(JSON.stringify({ type: 'chanlog', data: user.getServerLog('local') }));
 		data.socket.send(JSON.stringify({ type: 'chanlog', data: user.getServersLog() }));
 		// data.socket.send(JSON.stringify({ type: 'servers', data: user.getServers() }));
@@ -104,3 +97,5 @@ Ev.on('irc.connected', function(data) {
 Ev.on('irc.join', function(data) {
    console.log(data);
 });
+
+module.exports = { wss_: wss, db_: db };
