@@ -4,7 +4,8 @@ var nodemon = require('gulp-nodemon');
 
 function handleError(err) {
 	console.log(err.toString());
-	this.emit('end');
+	if(!process.env.NODE_TEST)
+		this.emit('end');
 }
 
 gulp.task('init', function() {
@@ -20,7 +21,7 @@ gulp.task('test', function() {
 });
 
 gulp.task('runtest', function() {
-	
+
 });
 
 gulp.task('watch', function() {
