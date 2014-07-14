@@ -9,8 +9,8 @@ function handleError(err) {
 }
 
 gulp.task('init', function() {
-	process.env['NODE_ENV'] = 'development';
-	nodemon({ script: 'wheat.js', ext: 'js', ignore: ['test/**'] });
+	// process.env['NODE_ENV'] = 'development';
+	// nodemon({ script: 'wheat.js', ext: 'js', ignore: ['test/**'] });
 });
 
 gulp.task('test', function() {
