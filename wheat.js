@@ -19,7 +19,6 @@ wss.on('connection', function(ws) {
 		console.log("[ SCK ] %s", m.type, m.data);
 	});
 	ws.on('close', function() {
-		console.log('client disconnected');
 		Users.removeSocket(ws);
 	});
 });
@@ -42,6 +41,13 @@ Ev.on('socket.join', function(data) {
 	if(user)
 		user.joinChannel(data.resp.server, data.resp.channel);
 });
+
+Ev.on('socket.connectServer', function(data) {
+	var user = Users.findUserBySocket(data.socket);
+	console.log(user)
+	if(user)
+		data.socket.send(JSON.stringify({ type: 'connectServer', data: { status: 'connected' } }))
+})
 
 Ev.on('socket.setNick', function(data) {
 	var user = Users.findUserBySocket(data.socket);

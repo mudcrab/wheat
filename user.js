@@ -224,7 +224,7 @@ var Server = require('./server.js');
 		this.sockets.forEach(function(_socket, i) {
 			if(_socket == socket)
 			{
-				console.log('Removing socket for "%s"', self.username);
+				// console.log('Removing socket for "%s"', self.username);
 				self.sockets.splice(i, 1);
 			}
 		});
