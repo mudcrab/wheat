@@ -9,14 +9,14 @@ var Ev = new Events();
 var Users = new u();
 config.events = Ev;	
 
-console.log('WHEAT', config.app.ports[process.env.NODE_ENV])
+// console.log('WHEAT', config.app.ports[process.env.NODE_ENV])
 
 wss.on('connection', function(ws) {
 	ws.send(JSON.stringify({ type: 'connected' }));
 	ws.on('message', function(message) {
 		var m = JSON.parse(message);
 		Ev.emit('socket.' + m.type, { resp: m.data, socket: ws });
-		console.log("[ SCK ] %s", m.type, m.data);
+		// console.log("[ SCK ] %s", m.type, m.data);
 	});
 	ws.on('close', function() {
 		Users.removeSocket(ws);
@@ -32,7 +32,7 @@ Ev.on('socket.auth', function(data) {
 		// data.socket.send(JSON.stringify({ type: 'chanlog', data: user.getServerLog('local') }));
 		data.socket.send(JSON.stringify({ type: 'chanlog', data: user.getServersLog() }));
 		// data.socket.send(JSON.stringify({ type: 'servers', data: user.getServers() }));
-		console.log("%s authenticated", data.resp.username);
+		// console.log("%s authenticated", data.resp.username);
 	}
 });
 
@@ -44,7 +44,7 @@ Ev.on('socket.join', function(data) {
 
 Ev.on('socket.connectServer', function(data) {
 	var user = Users.findUserBySocket(data.socket);
-	console.log(user)
+	// console.log(user)
 	if(user)
 		data.socket.send(JSON.stringify({ type: 'connectServer', data: { status: 'connected' } }))
 })
@@ -101,7 +101,7 @@ Ev.on('irc.connected', function(data) {
 });
 
 Ev.on('irc.join', function(data) {
-   console.log(data);
+   // console.log(data);
 });
 
 module.exports = { wss_: wss, db_: db };

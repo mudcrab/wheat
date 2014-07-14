@@ -57,7 +57,7 @@ var Server = require('./server.js');
 		});
 
 		this.servers[server.get('name')].irc.addListener('error', function(message) {
-			console.log(message);
+			// console.log(message);
 		});
 
 		this.servers[server.get('name')].irc.addListener('message', function(f, t, m) {
@@ -214,7 +214,7 @@ var Server = require('./server.js');
 
 	User.prototype.addSocket = function(socket)
 	{
-		console.log('Adding socket for %s', this.model.get('email'));
+		// console.log('Adding socket for %s', this.model.get('email'));
 		this.sockets.push(socket);
 	};
 
@@ -224,7 +224,7 @@ var Server = require('./server.js');
 		this.sockets.forEach(function(_socket, i) {
 			if(_socket == socket)
 			{
-				// console.log('Removing socket for "%s"', self.username);
+				// // console.log('Removing socket for "%s"', self.username);
 				self.sockets.splice(i, 1);
 			}
 		});

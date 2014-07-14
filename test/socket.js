@@ -43,7 +43,7 @@ describe('Socket client', function() {
 			});
 
 			Events.on('auth', function(data) {
-				console.log(data)
+				// console.log(data)
 				data.status.should.equal('authenticated');
 				client.close();
 				// closeConnections();
