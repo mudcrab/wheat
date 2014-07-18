@@ -11,24 +11,27 @@ var E = require('minivents');
 var Events = new E();
 var port = config.app.ports[process.env.NODE_ENV] || 1337;
 var wsAddress = 'ws://localhost:' + port;
+var Log = require('../log.js');
+var Logger = new Log('log/test.log', { echo: false, timestamp: true });
 
 function setData(type, data)
 {
 	return JSON.stringify({ type: type, data: data });
 };
 
-function closeConnections()
+function closeConnections(cb)
 {
 	setTimeout(function() {
-		wheat.wss_.close();
-		wheat.db_.connection.knex.destroy();
+		wheat.stop();
+		cb();
 	}, 1000);
 };
 
 describe('Socket client', function() {
 	var client;
+	var serverlist;
 
-	beforeEach(function(done) {
+	before(function(done) {
 		client = new WebSocket(wsAddress);
 		client.on('open', function() {
 			client.send(setData('auth', { username: 'jk', password: 'asdf1234' }));
@@ -41,7 +44,7 @@ describe('Socket client', function() {
 		});
 	});
 
-	afterEach(function(done) {
+	after(function(done) {
 		client.close();
 		done();
 	});
@@ -54,13 +57,15 @@ describe('Socket client', function() {
 		});
 	});
 
-	it('should connect to an irc server', function(done) {
+	it('should connect to (or add) an irc server', function(done) {
 		var serverData = {
 			name: 'local2',
-			address: 'localhost'
+			address: 'localhost',
+			nick: 'jkk',
+			autojoin: true,
 		};
 
-		client.send(setData( 'connectServer', serverData ));
+		client.send(setData( 'irc.connect', serverData ));
 
 		Events.on('connectServer', function(data) {
 			data.status.should.equal('connected');
@@ -69,8 +74,27 @@ describe('Socket client', function() {
 		});
 	});
 
-	it('should get a list of servers');
-	it('should get a list of channels');
+	it('should get a list of servers', function(done) {
+		client.send(setData('irc.servers', {}));
+
+		Events.on('servers', function(data) {
+			data.servers.should.be.an.Object;
+			serverlist = data.servers;
+			done();
+		});
+	});
+
+	it('should disconnect from an irc server', function(done) {
+		client.send(setData('irc.disconnect', { name: serverlist[0].name }))
+		serverlist.shift();
+
+		Events.on('disconnectServer', function(data) {
+			data.status.should.be.true;
+			client.send(setData('server.stop', {}));
+			done();
+		});
+	});
+
 	it('should join a channel');
 	it('should change the nickname');
 	it('should part the channel');
