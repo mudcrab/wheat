@@ -24,25 +24,25 @@ var db = require('./db.js');
 		var self = this;
 
 		/*new db.models.User({ email: 'blah@lol.com', password: 'lel' }).save().then(function(user) {
-			// console.log(user);
+			config.logger.log(user);
 		})*/
 
 		db.models.User.collection().fetch().then(function(users) {
-			// console.log('loading %d user(s)', users.length)
+			config.logger.log('loading %d user(s)', users.length)
 			users.forEach(function(user) {
 				self.loadUser(user);
 			})
 		})
 
 		/*new db.models.User().fetch().then(function(users) {
-			// console.log(users)
+			config.logger.log(users)
 		})*/
 
 		/*new db.models.User({ id: 1}).related('servers').fetch().then(function(data) {
 			data.models.forEach(function(model) {
 				model.related('channels').fetch().then(function(channels) {
 					channels.models.forEach(function(channel) {
-						// console.log('%s => %s', model.get('name'), channel.get('name'))
+						config.logger.log('%s => %s', model.get('name'), channel.get('name'))
 					});
 				});
 			});

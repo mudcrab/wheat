@@ -1,6 +1,6 @@
 var db = require('./db.js');
 var config = require('./config.js');
-var irc = require('node-irc');
+var irc = require('irc');
 
 (function() {
 	var Server = function(server, cb)
@@ -19,11 +19,12 @@ var irc = require('node-irc');
 				self.channels.push(channel);
 			});
 		}).then(function() {
+			new irc.Client();
 			self.irc = new irc.Client(self.model.get('address'), self.model.get('nick'), {
 				channels: channelNames,
 				realName: 'test#test',
 				userName: 'test#test'
-			});			
+			});
 
 			cb();
 		});
@@ -93,6 +94,11 @@ var irc = require('node-irc');
 			});
 
 		}
+	};
+
+	Server.prototype.disconnect = function()
+	{
+		this.irc.disconnect();
 	};
 
 	module.exports = Server;

@@ -4,7 +4,7 @@
 
 var db = require('./db.js');
 var config = require('./config.js');
-var irc = require('node-irc');
+var irc = require('irc');
 var Server = require('./server.js');
 
 (function() {
@@ -57,7 +57,7 @@ var Server = require('./server.js');
 		});
 
 		this.servers[server.get('name')].irc.addListener('error', function(message) {
-			// console.log(message);
+			config.logger.log(message);
 		});
 
 		this.servers[server.get('name')].irc.addListener('message', function(f, t, m) {
@@ -89,6 +89,23 @@ var Server = require('./server.js');
 			return false;
 		else
 			return server.irc;
+	};
+
+	User.prototype.getServers = function()
+	{
+		var servers = [];
+		for(var server in this.servers)
+		{
+			if(this.servers.hasOwnProperty(server))
+			{
+				servers.push({
+					name: this.servers[server].model.get('name'),
+					address: this.servers[server].model.get('address'),
+					nick: this.servers[server].model.get('nick')
+				});
+			}
+		}
+		return servers;
 	};
 
 	/*
@@ -190,6 +207,29 @@ var Server = require('./server.js');
 		});
 	};
 
+	User.prototype.addServer = function(name, address, nick, autojoin, cb)
+	{
+		var self = this;
+
+		var server = this.getServer(name);
+
+		if(server)
+			cb(server);
+		else
+		{
+			db.models.Server.forge({ 
+				name: name,
+				address: address,
+				nick: nick,
+				autojoin: autojoin,
+				user_id: this.model.get('id')
+			}).save().then(function(server) {
+				self.initServer(server);
+				cb(server);
+			});
+		}
+	};
+
 	/*
 		Get the server from dbServers array
 
@@ -199,6 +239,19 @@ var Server = require('./server.js');
 	User.prototype.getServer = function(serverName)
 	{
 		return this.servers[serverName] || false;
+	};
+
+	User.prototype.disconnectServer = function(serverName)
+	{
+		var server = this.getServer(serverName);
+
+		if(server)
+		{
+			server.disconnect();
+			return true;
+		}
+		else
+			return false;
 	};
 
 	/*
@@ -214,7 +267,7 @@ var Server = require('./server.js');
 
 	User.prototype.addSocket = function(socket)
 	{
-		// console.log('Adding socket for %s', this.model.get('email'));
+		config.logger.log('Adding socket for %s', this.model.get('email'));
 		this.sockets.push(socket);
 	};
 
@@ -224,7 +277,7 @@ var Server = require('./server.js');
 		this.sockets.forEach(function(_socket, i) {
 			if(_socket == socket)
 			{
-				// // console.log('Removing socket for "%s"', self.username);
+				// config.logger.log('Removing socket for "%s"', self.username);
 				self.sockets.splice(i, 1);
 			}
 		});
