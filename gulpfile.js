@@ -1,9 +1,9 @@
 var gulp = require('gulp');
-var mocha = require('gulp-mocha');
-var nodemon = require('gulp-nodemon');
+var mocha = require('gulp-spawn-mocha');
+// var nodemon = require('gulp-nodemon');
 
 function handleError(err) {
-	// console.log(err.toString());
+	console.log(err.toString());
 	if(!process.env.NODE_TEST)
 		this.emit('end');
 }

@@ -8,19 +8,20 @@
     "url": "git://github.com/mudcrab/multigrain-backend.git"
   },
   "dependencies": {
+    "bcrypt-nodejs": "0.0.3",
     "bookshelf": "^0.7.6",
     "db-migrate": "^0.6.4",
     "knex": "^0.6.20",
-    "mocha": "^1.20.1",
-    "mysql": "^2.3.2",
-    "ws": "0.4",
     "minivents": "1.1.1",
-    "node-irc": "0.0.3",
-    "bcrypt-nodejs": "0.0.3"
+    "mocha": "^1.20.1",
+    "moment-timezone": "^0.1.0",
+    "mysql": "^2.3.2",
+    "node-irc": "martynsmith/node-irc#0.3.x",
+    "ws": "0.4"
   },
   "devDependencies": {
     "gulp": "^3.8.5",
-    "gulp-mocha": "^0.4.1",
+    "gulp-mocha": "^0.5.1",
     "gulp-nodemon": "^1.0.4",
     "should": "^4.0.4"
   },
