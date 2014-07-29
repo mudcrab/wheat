@@ -1,101 +1,138 @@
-/*
-	Users module, handles connected users
-*/
-
+var config = require('./config.js');
 var db = require('./db.js');
+var irc = require('irc');
+var User = require('./user.js');
 
-(function() {
+var users = 
+{
+	// ircServers: {},
 
-	var User = require('./user.js');
-	var config = require('./config.js');
-	var util = require('util');
-	var Bookshelf  = require('bookshelf').DB;
-
-
-	var UsersManager = function()
-	{
-		this.users = [];		
-
-		this.loadUsers();
-	};
-
-	UsersManager.prototype.loadUsers = function()
+	init: function()
 	{
 		var self = this;
 
-		/*new db.models.User({ email: 'blah@lol.com', password: 'lel' }).save().then(function(user) {
-			config.logger.log(user);
-		})*/
-
-		db.models.User.collection().fetch().then(function(users) {
-			config.logger.log('loading %d user(s)', users.length)
-			users.forEach(function(user) {
-				self.loadUser(user);
-			})
-		})
-
-		/*new db.models.User().fetch().then(function(users) {
-			config.logger.log(users)
-		})*/
-
-		/*new db.models.User({ id: 1}).related('servers').fetch().then(function(data) {
-			data.models.forEach(function(model) {
-				model.related('channels').fetch().then(function(channels) {
-					channels.models.forEach(function(channel) {
-						config.logger.log('%s => %s', model.get('name'), channel.get('name'))
-					});
+		db.models.User.forge().fetchAll()
+		.then(function(usersData) {
+			usersData.each(function(user) {
+				user.related('servers').fetch()
+				.then(function(servers) {
+					self.initServers(user, servers);
 				});
 			});
-		});*/
+		})
+	},
 
-	};
-
-	UsersManager.prototype.loadUser = function(user)
-	{
-		this.users.push(new User(user));
-	};
-
-	UsersManager.prototype.authenticate = function(username, password)
-	{
-
-	};
-
-	UsersManager.prototype.findUser = function(username, password, socket)
-	{
-		var u = false;
-		this.users.forEach(function(user) {
-			if(user.model.get('email') === username && user.model.get('password') === password)
-			{
-				u = user;
-				user.addSocket(socket);
-			}
-		});
-		return u;
-	};
-
-	UsersManager.prototype.findUserBySocket = function(socket)
+	initServers: function(user, servers)
 	{
 		var self = this;
-		var user = false;
 
-		this.users.forEach(function(user_) {
-			user_.sockets.forEach(function(socket_) {
-				if(socket_ === socket)
-					user = user_;
+		servers.each(function(server) {
+			var sId = server.get('id') + '_' + server.get('name') + '_' + user.get('id');
+			var serverName = server.get('name');
+			
+			config.ircServers[sId] = new irc.Client(server.get('address'), server.get('nick'), {
+				channels: ['#test'], // TODO
+				realName: 'test#test',
+				userName: 'test#test',
+				autoConnect: Boolean(+server.get('autojoin'))
 			});
+
+			config.ircServers[sId].addListener('registered', function(data) {
+				config.events.emit('irc.' + sId + '.registered', data);	
+			});
+
+			config.ircServers[sId].addListener('join', function(channel, nick) {
+				config.events.emit('irc.' + sId + '.join', { channel: channel, nick: nick });
+			});
+
+			config.ircServers[sId].addListener('error', function(data) {
+				config.events.emit('irc.' + sId + '.error', data);
+			});
+
+			config.ircServers[sId].addListener('message', function(nick, to, message) {
+				config.events.emit('irc.' + sId + '.message', {
+					from: nick,
+					to: to,
+					message: message
+				});
+			});
+
+			config.ircServers[sId].addListener('names', function(channel, nicks) {
+				config.events.emit('irc.' + sId + '.names', {
+					channel: channel,
+					nicks: nicks,
+					server: serverName
+				});
+			});
+
+			config.ircServers[sId].addListener('topic', function(channel, topic, nick) {
+				config.events.emit('irc.' + sId + '.topic', {
+					channel: channel,
+					topic: topic,
+					nick: nick,
+					server: serverName
+				});
+			});
+
+			config.ircServers[sId].addListener('part', function(channel, nick, reason) {
+				config.events.emit('irc.' + sId + '.part', {
+					channel: channel,
+					nick: nick,
+					reason: reason,
+					server: serverName
+				});
+			});
+
+			config.ircServers[sId].addListener('quit', function(nick, reason, channels) {
+				config.events.emit('irc.' + sId + '.quit', {
+					nick: nick,
+					reason: reason,
+					channels: channels,
+					server: serverName
+				});
+			});
+
+			config.ircServers[sId].addListener('kick', function(channel, nick, by, reason) {
+				config.events.emit('irc.' + sId + '.kick', {
+					channel: channel,
+					nick: nick,
+					by: by,
+					reason: reason,
+					server: serverName
+				});
+			});
+
+			config.ircServers[sId].addListener('pm', function(nick, text) {
+				config.events.emit('irc.' + sId + '.pm', {
+					nick: nick,
+					text: text,
+					server: serverName
+				});
+			});
+
+			config.ircServers[sId].addListener('nick', function(oldNick, newNick, channels) {
+				config.events.emit('irc.' + sId + '.nick', {
+					oldNick: oldNick,
+					newNick: newNick,
+					channels: channels,
+					server: serverName
+				});
+			});
+
 		});
+	},
 
-		return user;
-	};
-
-	UsersManager.prototype.removeSocket = function(socket)
+	auth: function(email, password, cb)
 	{
-		var self = this;
-		this.users.forEach(function(user) {
-			user.removeSocket(socket);
+
+		db.models.User.forge({ email: email, password: password }).fetch({ withRelated: ['servers'] })
+		.then(function(user) {
+			cb(user);
 		});
-	};
 
-	module.exports = UsersManager;
+	},
 
-})();
+	User: User
+};
+
+module.exports = users;

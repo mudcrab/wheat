@@ -1,312 +1,235 @@
-/*
-	User module (model?) handles IRC, db, etc connections for the user
-*/
-
-var db = require('./db.js');
 var config = require('./config.js');
+var users = require('./users.js');
 var irc = require('irc');
-var Server = require('./server.js');
+var db = require('./db.js');
+var helper = require('./helpers/socket_helper.js')
 
-(function() {
+var User = function(id, email, socket)
+{
+	this.id = id;
+	this.email = email;
+	this.socket = socket;
+	this.sId = this.id + '_' + this.email;
 
-	var User = function(model)
+	config.events.on('socket.' + this.sId + '.irc.connect', this.connect, this);
+	config.events.on('socket.' + this.sId + '.irc.disconnect', this.disconnect, this);
+	config.events.on('socket.' + this.sId + '.irc.join', this.join, this);
+	config.events.on('socket.' + this.sId + '.irc.part', this.part, this);
+	config.events.on('socket.' + this.sId + '.irc.say', this.say, this);
+	config.events.on('socket.' + this.sId + '.irc.servers', this.servers, this);
+	config.events.on('socket.' + this.sId + '.irc.channels', this.channels, this);
+	config.events.on('socket.' + this.sId + '.irc.names', this.names, this);
+};
+
+User.prototype.initServers = function()
+{
+	var self = this;
+	this.model.related('servers').each(function(server) {
+		self.addIrcListeners(server.get('id'), server.get('name'), self.id);
+	});
+};
+
+User.prototype.addIrcListeners = function(id, name, uid)
+{
+	var self = this;
+	var sId = id + '_' + name + '_' + uid;
+
+	config.events.on('irc.' + sId + '.registered', function(data) {
+		self.socket.send(helper.socketData('irc.registered', { status: true, server: name }));
+	});
+
+	config.events.on('irc.' + sId + '.join', function(data) {
+		self.socket.send(helper.socketData('irc.joined', { status: true, server: name, channel: data.channel, nick: data.nick }));
+	});
+
+	config.events.on('irc.' + sId + '.error', function(data) {
+		config.logger.error('IRC error for uid %d on %s connection', uid, name);
+		config.logger.error(data);
+	});
+
+	config.events.on('irc.' + sId + '.message', function(data) {
+		self.socket.send(helper.socketData('irc.message', {
+			server: name,
+			from: data.from,
+			to: data.to,
+			message: data.message
+		}));
+	});
+
+	config.events.on('irc.' + sId + '.names', function(data) {
+		self.socket.send(helper.socketData('irc.names', data));
+	});
+
+	config.events.on('irc.' + sId + '.topic', function(data) {
+		self.socket.send(helper.socketData('irc.topic', data));
+	});
+
+	config.events.on('irc.' + sId + '.part', function(data) {
+		self.socket.send(helper.socketData('irc.part', data));
+	});
+
+	config.events.on('irc.' + sId + '.quit', function(data) {
+		self.socket.send(helper.socketData('irc.quit', data));
+	});
+
+	config.events.on('irc.' + sId + '.kick', function(data) {
+		self.socket.send(helper.socketData('irc.kick', data));
+	});
+
+	config.events.on('irc.' + sId + '.pm', function(data) {
+		self.socket.send(helper.socketData('irc.pm', data));
+	});
+
+	config.events.on('irc.' + sId + '.nick', function(data) {
+		self.socket.send(helper.socketData('irc.nick', data));
+	});
+};
+
+User.prototype.connect = function(data)
+{
+	var self = this;
+	var server = this.getServer(data.response.name);
+
+	if(server === null)
 	{
-		this.model = model;
-		this.sockets = [];
-		this.servers = {};
-		this.ircConnections = [];
-		this.dbChannels = [];
-
-		this.init();
-	};
-
-	User.prototype.init = function()
-	{
-		var self = this;
-		this.model.related('servers').fetch()
-		.then(function(servers) {
-			servers.forEach(function(server) {
-				self.servers[server.get('name')] = new Server(server, function() {
-					self.initServer(server);
-				});
-			});
-		});
-		/*db.models.User.forge({ id: this.userInfo.id }).fetch().then(function(user) {
-			user.related('servers').fetch().then(function(servers) {
-				servers.forEach(function(server) {
-					self.loadServer(server);
-				});
-			});
-		});*/
-	};
-
-	User.prototype.initServer = function(server)
-	{
-		var self = this;
-		
-		this.servers[server.get('name')].irc.addListener('registered', function(_data) {
-			config.events.emit('irc.connected', { server: { name: server.get('name'), data: _data }, users: self.sockets });
-		});
-
-		this.servers[server.get('name')].irc.addListener('raw', function(raw) {
-			// 
-		});
-
-		this.servers[server.get('name')].irc.addListener('join', function(channel, nick) {
-			config.events.emit('irc.join', { channel: channel, nick: nick });
-		});
-
-		this.servers[server.get('name')].irc.addListener('error', function(message) {
-			config.logger.log(message);
-		});
-
-		this.servers[server.get('name')].irc.addListener('message', function(f, t, m) {
-			var mData = {
-				from: f,
-				to: t,
-				message: m,
-				server: self.model.get('name')
-			};
-			self.updateLog.call(self, self.model.get('name'), mData);
-			config.events.emit('irc.say', {
-				server: server.get('name'),
-				users: self.sockets,
-				data: mData
-			});
-		});
-		
-	};
-
-	User.prototype.authenticate = function(socket)
-	{
-		this.sockets.push(socket);
-	};
-
-	User.prototype.getIrc = function(serverName)
-	{
-		var server = this.servers[serverName];
-		if(typeof server == 'undefined')
-			return false;
-		else
-			return server.irc;
-	};
-
-	User.prototype.getServers = function()
-	{
-		var servers = [];
-		for(var server in this.servers)
-		{
-			if(this.servers.hasOwnProperty(server))
-			{
-				servers.push({
-					name: this.servers[server].model.get('name'),
-					address: this.servers[server].model.get('address'),
-					nick: this.servers[server].model.get('nick')
-				});
-			}
-		}
-		return servers;
-	};
-
-	/*
-		joins the channel and adds an entry to the database for future autojoin
-	*/
-
-	User.prototype.joinChannel = function(serverName, channelName)
-	{
-		this.getServer(serverName).joinChannel(channelName);
-	};
-
-	/*
-		parts the channel and removes the entry from the database
-	*/
-
-	User.prototype.partChannel = function(serverName, channel)
-	{
-		// todo
-	};
-
-	User.prototype.getServersLog = function()
-	{
-		var log = {};
-		for(var server in this.servers)
-		{
-			var srv = this.getServer(server);
-			log[server] = [];
-			srv.channels.forEach(function(channel) {
-				srv.getLog(channel.get('name'), 100, function(history) {
-					log[server].push({
-						name: channel.get('name'),
-						message: 'none',
-						history: history
-					});
-				});
-			});
-		}
-		return log;
-	};
-
-	User.prototype.updateLog = function(serverName, messageData)
-	{
-		var channel = {};
-		var server_ = null;
-		var message = null;
-
-		this.dbServers.forEach(function(server) {
-			if(server.get('name') === serverName)
-				server_ = server.get('id');
-		});
-
-		this.dbChannels.forEach(function(chan) {
-			if(chan.get('name') === messageData.to && server_ == chan.get('server_id'))
-				channel = chan;
-		});
-
-		var msg = new db.models.Messages({
-			from: messageData.from,
-			message: messageData.message
-		}).fetch().then(function(m) {
-			if(m)
-			{
-				new db.models.Log({
-					channel_id: channel.get('id'),
-					message_id: m.get('id')
-				}).save();
-			}
-			else
-			{
-				new db.models.Messages({
-					from: messageData.from,
-					message: messageData.message,
-					date: '2014-04-27 12:00:00'
-				}).save().then(function(m) {
-					new db.models.Log({
-						channel_id: channel.get('id'),
-						message_id: m.get('id')
-					}).save();
-				});
-			}
-		});
-	};
-
-	User.prototype.getLog = function(serverName, channelName, lines, cb)
-	{
-		db.models.Server.forge({ user_id: this.userInfo.id, name: serverName }).fetch().then(function(server) {
-			
-			db.connection.knex('logs')
-			.join('messages', 'messages.id', '=', 'logs.message_id')
-			.where('logs.channel_id', function() {
-				this.select('id').from('channels').where({ name: channelName, server_id: server.get('id') });
-			})
-			.limit(lines)
-			.select('messages.from', 'messages.message', 'messages.date').then(function(data) {
-				if(typeof cb == 'function')
-					cb(data);
+		db.models.Server.forge({ 
+			name: data.response.name,
+			address: data.response.address,
+			nick: data.response.nick,
+			autojoin: data.response.autojoin,
+			user_id: this.id
+		})
+		.save()
+		.then(function(srv) {
+			var sid = srv.get('id') + '_' + srv.get('name') + '_' + self.id;
+			config.ircServers[sId] = new irc.Client(srv.get('address'), srv.get('nick'), {
+				channels: ['#test'], // TODO
+				realName: 'test#test',
+				userName: 'test#test',
+				autoConnect: Boolean(+srv.get('autojoin'))
 			});
 
+			if(!Boolean(+srv.get('autojoin')))
+				config.ircServers[sId].connect();
 		});
-	};
-
-	User.prototype.addServer = function(name, address, nick, autojoin, cb)
+	}
+	else
 	{
-		var self = this;
+		var sId = server.get('id') + '_' + server.get('name') + '_' + this.id;
 
-		var server = this.getServer(name);
+		if(typeof config.ircServers[sId].nick == 'undefined')
+			config.ircServers[sId].connect();
+	}
+};
 
-		if(server)
-			cb(server);
-		else
-		{
-			db.models.Server.forge({ 
-				name: name,
-				address: address,
-				nick: nick,
-				autojoin: autojoin,
-				user_id: this.model.get('id')
-			}).save().then(function(server) {
-				self.initServer(server);
-				cb(server);
-			});
-		}
-	};
+User.prototype.disconnect = function(data)
+{
+	var server = this.getServer(data.response.name);
+	if(this.isServerConnected( server.get('id'), server.get('name'), this.id ))
+		this.getIrcServer( server.get('id'), server.get('name'), this.id ).disconnect('leaving...');
+};
 
-	/*
-		Get the server from dbServers array
+User.prototype.join = function(data)
+{
+	var server = this.getServer(data.response.name);
+	var ircServer = this.getIrcServer(server.get('id'), server.get('name'), this.id);
 
-		@return server model || false
-	*/
+	if(typeof ircServer.chans[data.response.channel] == 'undefined')
+		ircServer.join(data.response.channel);
+};
 
-	User.prototype.getServer = function(serverName)
-	{
-		return this.servers[serverName] || false;
-	};
+User.prototype.part = function(data)
+{
+	var server = this.getServer(data.response.name);
+	var ircServer = this.getIrcServer(server.get('id'), server.get('name'), this.id);
 
-	User.prototype.disconnectServer = function(serverName)
-	{
-		var server = this.getServer(serverName);
+	if(typeof ircServer.chans[data.response.channel] == 'undefined')
+		ircServer.part(data.response.channel);
+};
 
-		if(server)
-		{
-			server.disconnect();
-			return true;
-		}
-		else
-			return false;
-	};
+User.prototype.say = function(data)
+{
+	var server = this.getServer(data.response.name);
+	var ircServer = this.getIrcServer(server.get('id'), server.get('name'), this.id);
 
-	/*
-		Get the channel from dbChannels array
+	ircServer.say(data.response.target, data.response.message);
 
-		@return channel model || false
-	*/
+	config.events.emit('irc.' + server.get('id') + '_' + server.get('name') + '_' + this.id + '.message', {
+		server: data.response.name,
+		from: server.get('nick'),
+		to: data.response.target,
+		message: data.response.message
+	});
+};
 
-	User.prototype.getChannel = function(channelName, serverName)
-	{
-		return this.servers[serverName].getChannel(channelName);
-	};
+User.prototype.servers = function()
+{
+	var dbServers = this.model.related('servers');
+	var servers = [];
 
-	User.prototype.addSocket = function(socket)
-	{
-		config.logger.log('Adding socket for %s', this.model.get('email'));
-		this.sockets.push(socket);
-	};
+	dbServers.each(function(server) {
+		servers.push(server.get('name'));
+	});
 
-	User.prototype.removeSocket = function(socket)
-	{
-		var self = this;
-		this.sockets.forEach(function(_socket, i) {
-			if(_socket == socket)
-			{
-				// config.logger.log('Removing socket for "%s"', self.username);
-				self.sockets.splice(i, 1);
-			}
-		});
-	};
+	this.socket.send( helper.socketData('irc.servers', servers) );
+};
 
-	User.prototype.sendMessage = function(serverName, channelName, message)
-	{
-		var self = this;
+User.prototype.channels = function(server)
+{
+	var channels = [];
 
-		var server = this.getServer(serverName);
+	var dbChannels = this.getServer(server).related('channels').each(function(channel) {
+		channels.push(channel.get('name'));
+	});
 
-		if(server)
-		{
+	this.socket.send( helper.socketData('irc.channels', channels) );
+};
 
-			server.say(channelName, message);
+User.prototype.names = function(data)
+{
+	var server = this.getServer(data.response.name);
+	var ircServer = this.getIrcServer(server.get('id'), server.get('name'), this.id);
 
-			config.events.emit('irc.say', {
-				server: serverName,
-				users: self.sockets,
-				data: {
-					from: server.model.get('nick'),
-					to: channelName,
-					message: message,
-					server: serverName
-				}
-			});
-		}
-	};
 
-	module.exports = User;
+};
 
-})();
+User.prototype.getServer = function(name)
+{
+	var servers = this.model.related('servers');
+	var server = null;
+
+	servers.each(function(server_) {
+		if(server_.get('name') === name)
+			server = server_;
+	});
+	return server;
+};
+
+User.prototype.getIrcServer = function(id, name, uid)
+{
+	var sId = id + '_' + name + '_' + uid;
+	return config.ircServers[sId];
+};
+
+User.prototype.isServerConnected = function(id, name, uid)
+{
+	var connected = false;
+	var sId = id + '_' + name + '_' + uid;
+	if(typeof config.ircServers[sId].nick !== 'undefined')
+		connected = true;
+
+	return connected;
+}
+
+User.prototype.getChannel = function(server, channel)
+{
+
+};
+
+User.prototype.addModel = function(model)
+{
+	this.model = model;
+	this.initServers();
+};
+
+module.exports = User;

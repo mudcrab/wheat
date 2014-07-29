@@ -10,6 +10,8 @@ var config = {
 	server: null,
 	events: null,
 	logger: null,
+	clients: {},
+	ircServers: {},
 	env: 'development',
 	app: {
 		ports: {

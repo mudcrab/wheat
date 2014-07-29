@@ -1,6 +1,6 @@
 {
-  "name": "multigrain",
-  "description": "backend server for multigrain",
+  "name": "wheat",
+  "description": "headless irc client",
   "author": "Jevgeni <jevgeni@pitfire.eu>",
   "version": "0.0.1",
   "repository": {
@@ -10,7 +10,6 @@
   "dependencies": {
     "bcrypt-nodejs": "0.0.3",
     "bookshelf": "^0.7.6",
-    "db-migrate": "^0.6.4",
     "knex": "^0.6.20",
     "minivents": "1.1.1",
     "mocha": "^1.20.1",
