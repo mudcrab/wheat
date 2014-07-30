@@ -21,12 +21,13 @@ var User = function(id, email, socket)
 	config.events.on('socket.' + this.sId + '.irc.names', this.names, this);
 };
 
-User.prototype.initServers = function()
+User.prototype.initServers = function(cb)
 {
 	var self = this;
 	this.model.related('servers').each(function(server) {
 		self.addIrcListeners(server.get('id'), server.get('name'), self.id);
 	});
+	this.onConnect();
 };
 
 User.prototype.addIrcListeners = function(id, name, uid)
@@ -136,6 +137,22 @@ User.prototype.join = function(data)
 
 	if(typeof ircServer.chans[data.response.channel] == 'undefined')
 		ircServer.join(data.response.channel);
+
+	db.models.Channel.forge({
+		name: data.response.channel,
+		server_id: server.get('id')
+	})
+	.fetch()
+	.then(function(channel) {
+		if(channel == null)
+		{
+			db.models.Channel.forge({
+				name: data.response.channel,
+				server_id: server.get('id')
+			})
+			.save();
+		}
+	});
 };
 
 User.prototype.part = function(data)
@@ -143,8 +160,20 @@ User.prototype.part = function(data)
 	var server = this.getServer(data.response.name);
 	var ircServer = this.getIrcServer(server.get('id'), server.get('name'), this.id);
 
-	if(typeof ircServer.chans[data.response.channel] == 'undefined')
+	if(typeof ircServer.chans[data.response.channel] !== 'undefined')
 		ircServer.part(data.response.channel);
+
+	db.models.Channel.forge({
+		name: data.response.channel,
+		server_id: server.get('id')
+	})
+	.fetch()
+	.then(function(channel) {
+		if(channel !== null)
+		{
+			channel.destroy();
+		}
+	});
 };
 
 User.prototype.say = function(data)
@@ -190,7 +219,8 @@ User.prototype.names = function(data)
 	var server = this.getServer(data.response.name);
 	var ircServer = this.getIrcServer(server.get('id'), server.get('name'), this.id);
 
-
+	if(this.isServerConnected(server.get('id'), server.get('name'), this.id))
+		ircServer.send('NAMES', data.response.channel);
 };
 
 User.prototype.getServer = function(name)
@@ -230,6 +260,16 @@ User.prototype.addModel = function(model)
 {
 	this.model = model;
 	this.initServers();
+};
+
+User.prototype.onConnect = function()
+{
+	var self = this;
+	this.servers();
+	this.model.related('servers').each(function(server) {
+		self.channels(server.get('name'));
+		self.names({ response: { name: server.get('name') } });
+	});
 };
 
 module.exports = User;
