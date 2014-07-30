@@ -6,11 +6,6 @@ var Log = require('./helpers/log.js');
 var helper = require('./helpers/socket_helper.js');
 var users = require('./users.js');
 
-var WebSocket = require('ws')
-  , sClient = new WebSocket('ws://localhost:1337');
-
-
-
 // Configuration
 
 config.env = process.env.NODE_ENV || 'development';
@@ -65,51 +60,4 @@ config.server.on('connection', function(client) {
 			}
 		});
 	});
-});
-
-/* client stuff */
-
-sClient.on('open', function() {
-   sClient.send(helper.socketData('auth', { email: 'jk', password: 'asdf1234' }));
-   setTimeout(function() {
-   	sClient.send(helper.socketData('irc.connect', 
-   	{
-		name: 'local3',
-		address: 'localhost',
-		nick: 'jknw',
-		autojoin: false,
-	}));
-   	sClient.send(helper.socketData('irc.connect', { name: 'local2' }));
-   	/*setTimeout(function() {
-   		sClient.send(helper.socketData('irc.join', {
-   			name: 'local2',
-   			channel: '#test2'
-   		}));
-   		sClient.send(helper.socketData('irc.say', {
-   			name: 'local2',
-   			target: '#test',
-   			message: 'hello world'
-   		}))
-   	}, 2000);
-   	sClient.send(helper.socketData('irc.servers', {}))*/
-   }, 1000)
-
-});
-
-sClient.on('message', function(message) {
-    console.log('[JKK] %s', message);
-});
-
-var test2 = new WebSocket('ws://localhost:1337');
-
-test2.on('open', function() {
-   test2.send(helper.socketData('auth', { email: 'test@test', password: 'blah' }));
-   setTimeout(function() {
-   	// test2.send(helper.socketData('irc.connect', {}))
-   	test2.close()
-   }, 1000)
-});
-
-test2.on('message', function(message) {
-    console.log('[TEST2] %s', message);
 });
