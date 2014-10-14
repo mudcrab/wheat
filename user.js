@@ -4,21 +4,23 @@ var irc = require('irc');
 var db = require('./db.js');
 var helper = require('./helpers/socket_helper.js')
 
-var User = function(id, email, socket)
+var User = function(id, email, socket, encStr)
 {
 	this.id = id;
 	this.email = email;
 	this.socket = socket;
 	this.sId = this.id + '_' + this.email;
+	this.encoded = encStr;
+	this.dbServers = null;
 
-	config.events.on('socket.' + this.sId + '.irc.connect', this.connect, this);
-	config.events.on('socket.' + this.sId + '.irc.disconnect', this.disconnect, this);
-	config.events.on('socket.' + this.sId + '.irc.join', this.join, this);
-	config.events.on('socket.' + this.sId + '.irc.part', this.part, this);
-	config.events.on('socket.' + this.sId + '.irc.say', this.say, this);
-	config.events.on('socket.' + this.sId + '.irc.servers', this.servers, this);
-	config.events.on('socket.' + this.sId + '.irc.channels', this.channels, this);
-	config.events.on('socket.' + this.sId + '.irc.names', this.names, this);
+	config.events.on('socket.' + this.encoded + '.irc.connect', this.connect, this);
+	config.events.on('socket.' + this.encoded + '.irc.disconnect', this.disconnect, this);
+	config.events.on('socket.' + this.encoded + '.irc.join', this.join, this);
+	config.events.on('socket.' + this.encoded + '.irc.part', this.part, this);
+	config.events.on('socket.' + this.encoded + '.irc.say', this.say, this);
+	config.events.on('socket.' + this.encoded + '.irc.servers', this.servers, this);
+	config.events.on('socket.' + this.encoded + '.irc.channels', this.channels, this);
+	config.events.on('socket.' + this.encoded + '.irc.names', this.names, this);
 };
 
 User.prototype.initServers = function(cb)
@@ -27,7 +29,22 @@ User.prototype.initServers = function(cb)
 	this.model.related('servers').each(function(server) {
 		self.addIrcListeners(server.get('id'), server.get('name'), self.id);
 	});
-	this.onConnect();
+	self.updateServers(function() {
+		self.onConnect();
+	});
+};
+
+User.prototype.updateServers = function(cb)
+{
+	var self = this;
+	this.model.related('servers').fetch()
+	.then(function(servers) {
+		self.dbServers = servers;
+	})
+	.then(function() {
+		if(typeof cb !== 'undefined')
+			cb();
+	});
 };
 
 User.prototype.addIrcListeners = function(id, name, uid)
@@ -36,11 +53,25 @@ User.prototype.addIrcListeners = function(id, name, uid)
 	var sId = id + '_' + name + '_' + uid;
 
 	config.events.on('irc.' + sId + '.registered', function(data) {
-		self.socket.send(helper.socketData('irc.registered', { status: true, server: name }));
+		try
+		{
+			self.socket.send(helper.socketData('irc.registered', { status: true, server: name }));
+		}
+		catch(e)
+		{
+			config.logger.error('Socket not opened');
+		}
 	});
 
 	config.events.on('irc.' + sId + '.join', function(data) {
-		self.socket.send(helper.socketData('irc.joined', { status: true, server: name, channel: data.channel, nick: data.nick }));
+		try
+		{
+			self.socket.send(helper.socketData('irc.joined', { status: true, server: name, channel: data.channel, nick: data.nick }));
+		}
+		catch(e)
+		{
+			config.logger.error('Socket not opened');
+		}
 	});
 
 	config.events.on('irc.' + sId + '.error', function(data) {
@@ -49,47 +80,109 @@ User.prototype.addIrcListeners = function(id, name, uid)
 	});
 
 	config.events.on('irc.' + sId + '.message', function(data) {
-		self.socket.send(helper.socketData('irc.message', {
-			server: name,
-			from: data.from,
-			to: data.to,
-			message: data.message
-		}));
+		if(self.socket._socket != null)
+		{
+			try
+			{
+				self.socket.send(helper.socketData('irc.message', {
+					server: name,
+					from: data.from,
+					to: data.to,
+					message: data.message
+				}));
+			}
+			catch(e)
+			{
+				config.logger.error('Socket not opened');
+			}
+		}
 	});
 
 	config.events.on('irc.' + sId + '.names', function(data) {
-		self.socket.send(helper.socketData('irc.names', data));
+		try 
+		{
+			self.socket.send(helper.socketData('irc.names', data));
+		}
+		catch(e)
+		{
+			config.logger.error('Socket not opened');
+		}
 	});
 
 	config.events.on('irc.' + sId + '.topic', function(data) {
-		self.socket.send(helper.socketData('irc.topic', data));
+		try 
+		{
+			self.socket.send(helper.socketData('irc.topic', data));
+		}
+		catch(e)
+		{
+			config.logger.error('Socket not opened');
+		}
 	});
 
 	config.events.on('irc.' + sId + '.part', function(data) {
-		self.socket.send(helper.socketData('irc.part', data));
+		try
+		{
+			self.socket.send(helper.socketData('irc.part', data));
+		}
+		catch(e)
+		{
+			config.logger.error('Socket not opened');
+		}
 	});
 
 	config.events.on('irc.' + sId + '.quit', function(data) {
-		self.socket.send(helper.socketData('irc.quit', data));
+		try 
+		{
+			self.socket.send(helper.socketData('irc.quit', data));
+		}
+		catch(e)
+		{
+			config.logger.error('Socket not opened');
+		}
 	});
 
 	config.events.on('irc.' + sId + '.kick', function(data) {
-		self.socket.send(helper.socketData('irc.kick', data));
+		try
+		{
+			self.socket.send(helper.socketData('irc.kick', data));
+		}
+		catch(e)
+		{
+			config.logger.error('Socket not opened');
+		}
 	});
 
 	config.events.on('irc.' + sId + '.pm', function(data) {
-		self.socket.send(helper.socketData('irc.pm', data));
+		try
+		{
+			self.socket.send(helper.socketData('irc.pm', data));
+		}
+		catch(e)
+		{
+			config.logger.error('Socket not opened');
+		}
 	});
 
 	config.events.on('irc.' + sId + '.nick', function(data) {
-		self.socket.send(helper.socketData('irc.nick', data));
+		try
+		{
+			self.socket.send(helper.socketData('irc.nick', data));
+		}
+		catch(e)
+		{
+			config.logger.error('Socket not opened');
+		}
 	});
 };
 
 User.prototype.connect = function(data)
 {
 	var self = this;
-	var server = this.getServer(data.response.name);
+	this.updateServers(function() {
+		var server = self.getServer(data.response.name);
+
+	console.log(server)
 
 	if(server === null)
 	{
@@ -98,12 +191,13 @@ User.prototype.connect = function(data)
 			address: data.response.address,
 			nick: data.response.nick,
 			autojoin: data.response.autojoin,
-			user_id: this.id
+			user_id: self.id
 		})
 		.save()
 		.then(function(srv) {
-			var sid = srv.get('id') + '_' + srv.get('name') + '_' + self.id;
+			var sId = srv.get('id') + '_' + srv.get('name') + '_' + self.id;
 			config.ircServers[sId] = new irc.Client(srv.get('address'), srv.get('nick'), {
+				port: 6667,
 				channels: ['#test'], // TODO
 				realName: 'test#test',
 				userName: 'test#test',
@@ -112,15 +206,32 @@ User.prototype.connect = function(data)
 
 			if(!Boolean(+srv.get('autojoin')))
 				config.ircServers[sId].connect();
+			try
+			{
+				self.socket.send(helper.socketData('irc.added', { name: srv.get('name') }));
+			}
+			catch(e)
+			{
+				config.logger.error('Socket not opened');
+			}
+
+			self.updateServers();
 		});
 	}
 	else
 	{
-		var sId = server.get('id') + '_' + server.get('name') + '_' + this.id;
+		var sId = server.get('id') + '_' + server.get('name') + '_' + selfn.id;
 
 		if(typeof config.ircServers[sId].nick == 'undefined')
+		{
 			config.ircServers[sId].connect();
+		}
+		try {
+			self.socket.send(helper.socketData('irc.connected', { name: server.get('name') }));
+		} catch(e) {}
 	}
+
+	});
 };
 
 User.prototype.disconnect = function(data)
@@ -200,35 +311,43 @@ User.prototype.servers = function()
 		servers.push(server.get('name'));
 	});
 
-	this.socket.send( helper.socketData('irc.servers', servers) );
+	try {
+		this.socket.send( helper.socketData('irc.servers', servers) );
+	} catch(e) {}
 };
 
 User.prototype.channels = function(server)
 {
+	var self = this;
 	var channels = [];
 
-	var dbChannels = this.getServer(server).related('channels').each(function(channel) {
-		channels.push(channel.get('name'));
-	});
+	var dbChannels = this.getServer(server).related('channels').fetch()
+	.then(function(_channels) {
+		_channels.each(function(channel) {
+			channels.push(channel.get('name'));
+		});
 
-	this.socket.send( helper.socketData('irc.channels', channels) );
+		try {
+			self.socket.send( helper.socketData('irc.channels', { serverName: server, channels: channels }) );
+		} catch(e) {}
+	});
 };
 
 User.prototype.names = function(data)
 {
 	var server = this.getServer(data.response.name);
 	var ircServer = this.getIrcServer(server.get('id'), server.get('name'), this.id);
-
+	
 	if(this.isServerConnected(server.get('id'), server.get('name'), this.id))
 		ircServer.send('NAMES', data.response.channel);
 };
 
-User.prototype.getServer = function(name)
+User.prototype.getServer = function(name, cb)
 {
-	var servers = this.model.related('servers');
+	// var servers = this.model.related('servers');
 	var server = null;
 
-	servers.each(function(server_) {
+	this.dbServers.each(function(server_) {
 		if(server_.get('name') === name)
 			server = server_;
 	});
@@ -268,7 +387,7 @@ User.prototype.onConnect = function()
 	this.servers();
 	this.model.related('servers').each(function(server) {
 		self.channels(server.get('name'));
-		self.names({ response: { name: server.get('name') } });
+		// self.names({ response: { name: server.get('name') } });
 	});
 };
 

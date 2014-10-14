@@ -40,9 +40,13 @@ var users =
 			.then(function() {
 				config.ircServers[sId] = new irc.Client(server.get('address'), server.get('nick'), {
 					channels: channels, // TODO
-					realName: 'test#test',
-					userName: 'test#test',
+					realName: 'Name',
+					userName: server.get('nick') + '_wheat',
 					autoConnect: Boolean(+server.get('autojoin'))
+				});
+
+				config.ircServers[sId].addListener('raw', function(data) {
+					
 				});
 
 				config.ircServers[sId].addListener('registered', function(data) {

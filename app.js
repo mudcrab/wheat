@@ -32,17 +32,22 @@ config.server.on('connection', function(client) {
 			users.auth(message.data.email, message.data.password, function(userData) {
 				if(userData)
 				{
-					u = new users.User(userData.get('id'), userData.get('email'), client);
+					var rnd = new Buffer(Math.random() * 1000).toString('base64');
+					u = new users.User(userData.get('id'), userData.get('email'), client, rnd);
 					u.addModel(userData);
 					config.clients[u.id + '_' + u.email] = config.clients[u.id + '_' + u.email] || [];
 					config.clients[u.id + '_' + u.email].push(u);
 					client.user = { id: u.id, email: u.email };
+					client.encoded = u.encoded;
+					client.send(helper.socketData('auth', { status: true }));
 				}
+				else
+					client.send(helper.socketData('auth', { status: false }));
 			});
 		}
 		else
 		{
-			config.events.emit('socket.' + client.user.id + '_' + client.user.email + '.' + message.type, {
+			config.events.emit('socket.' + client.encoded + '.' + message.type, {
 				response: message.data,
 				socket: client
 			});
@@ -52,12 +57,16 @@ config.server.on('connection', function(client) {
 	});
 
 	client.on('close', function() {
-		config.clients[client.user.id + '_' + client.user.email].forEach(function(cl, i) {
-			if(cl.socket == client)
-			{
-				config.clients[client.user.id + '_' + client.user.email].splice(i, 1);
-				return;
-			}
-		});
+		try {
+			config.clients[client.user.id + '_' + client.user.email].forEach(function(cl, i) {
+				if(cl.socket == client)
+				{
+					config.clients[client.user.id + '_' + client.user.email].splice(i, 1);
+					return;
+				}
+			});
+		} catch(e) {
+			config.logger.error('Could not remove socket from client');
+		}
 	});
 });
