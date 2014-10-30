@@ -316,19 +316,23 @@ User.prototype.servers = function()
 	} catch(e) {}
 };
 
-User.prototype.channels = function(server)
+User.prototype.channels = function(serverName)
 {
 	var self = this;
 	var channels = [];
+	var server = this.getServer(serverName);
 
-	var dbChannels = this.getServer(server).related('channels').fetch()
+	var dbChannels = server.related('channels').fetch()
 	.then(function(_channels) {
 		_channels.each(function(channel) {
-			channels.push(channel.get('name'));
+			channels.push({ 
+				channel: channel.get('name'),
+				nick: server.get('nick')
+			});
 		});
 
 		try {
-			self.socket.send( helper.socketData('irc.channels', { serverName: server, channels: channels }) );
+			self.socket.send( helper.socketData('irc.channels', { serverName: serverName, channels: channels }) );
 		} catch(e) {}
 	});
 };
