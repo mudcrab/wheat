@@ -19,7 +19,7 @@ var User = function(id, email, socket, encStr)
 	config.events.on('socket.' + this.encoded + '.irc.part', this.part, this);
 	config.events.on('socket.' + this.encoded + '.irc.say', this.say, this);
 	config.events.on('socket.' + this.encoded + '.irc.servers', this.servers, this);
-	config.events.on('socket.' + this.encoded + '.irc.channels', this.channels, this);
+	config.events.on('socket.' + this.encoded + '.irc.channels', this.getChannels, this);
 	config.events.on('socket.' + this.encoded + '.irc.names', this.names, this);
 };
 
@@ -243,6 +243,7 @@ User.prototype.disconnect = function(data)
 
 User.prototype.join = function(data)
 {
+	var self = this;
 	var server = this.getServer(data.response.name);
 	var ircServer = this.getIrcServer(server.get('id'), server.get('name'), this.id);
 
@@ -261,7 +262,10 @@ User.prototype.join = function(data)
 				name: data.response.channel,
 				server_id: server.get('id')
 			})
-			.save();
+			.save()
+			.then(function() {
+				self.channels(server.get('name'));
+			});
 		}
 	});
 };
@@ -335,6 +339,11 @@ User.prototype.channels = function(serverName)
 			self.socket.send( helper.socketData('irc.channels', { serverName: serverName, channels: channels }) );
 		} catch(e) {}
 	});
+};
+
+User.prototype.getChannels = function(data)
+{
+	this.channels(data.response.server);
 };
 
 User.prototype.names = function(data)
