@@ -11,6 +11,7 @@ var config = {
 	events: null,
 	logger: null,
 	clients: {},
+	apiClients: {},
 	ircServers: {},
 	env: 'development',
 	app: {

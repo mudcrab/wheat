@@ -5,6 +5,10 @@ var Events = require('minivents');
 var Log = require('./helpers/log.js');
 var helper = require('./helpers/socket_helper.js');
 var users = require('./users.js');
+var express = require('express');
+var crypto = require('crypto');
+var shasum = crypto.createHash('sha1');
+var app = express();
 
 // Configuration
 
@@ -18,6 +22,62 @@ config.logger.info("Started (%s) socket server on %d", config.env, config.app.po
 // Set up socket server
 
 users.init();
+
+app.get('/', function(req, res) {
+    res.send('hi');
+});
+
+// TODO should be a POST
+
+app.get('/auth/:username/:password', function(req, res) {
+	var status = users.auth(req.params.username, req.params.password, function(userData) {
+		if(userData)
+		{
+			var rnd = shasum.update(new Buffer("loler1").toString('base64'));
+			var hash = rnd.digest('hex');
+			
+			config.apiClients[userData.id + '_' + userData.email] = config.apiClients[userData.id + '_' + userData.email] || [];
+			
+			config.apiClients[userData.id + '_' + userData.email].push(hash);
+			
+			res.send({
+				hash: hash,
+				status: true,
+				data: userData
+			});
+		}
+		else
+		{
+			res.send( JSON.stringify({
+				status: false
+			}));
+		}
+	});
+});
+
+app.get('/messages/:server/:channel/:hash', function(req, res) {
+	var ret = {
+		status: false
+	};
+
+	if(config.apiClients.hasOwnProperty(req.params.hash))
+	{
+		var userData = config.apiClients[req.params.hash];
+		ret.status = true;
+
+		db.models.Logs.forge({
+			server_id: req.params.server,
+			channel_id: req.params.channel,
+			user_id: userData.id
+		})
+		.fetch()
+		.then(function(logs) {
+			ret.data = logs.toJSON();
+			res.json(ret);
+		});
+	}
+
+});
 
 config.server.on('connection', function(client) {
 	client.send(helper.socketData('connected'));
@@ -69,4 +129,11 @@ config.server.on('connection', function(client) {
 			config.logger.error('Could not remove socket from client');
 		}
 	});
+});
+
+var server = app.listen(3000, function() {
+    var host = server.address().address;
+    var port = server.address().port;
+    
+    console.log('server listening at http://%s:%s', host, port);
 });
