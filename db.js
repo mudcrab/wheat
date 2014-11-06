@@ -11,6 +11,9 @@ var config = require('./config.js');
 			password: config.db.password,
 			database: config.db.db,
 			charset: 'utf8'
+		},
+		migrations: {
+			tableName: 'migrations'
 		}
 	});
 
@@ -44,27 +47,11 @@ var config = require('./config.js');
 	});
 
 	db.models.Log = db.connection.Model.extend({
-		tableName: 'logs',
-		/*channels: function()
-		{
-			return this.hasMany(db.models.Channel);
-		},
-		messages: function()
-		{
-			return this.hasMany(db.models.Messages);
-		}*/
-	});
-
-	db.models.Messages = db.connection.Model.extend({
-		tableName: 'messages',
-		logs: function()
-		{
-			return this.hasMany(db.models.Log);
-		}
+		tableName: 'logs'
 	});
 
 	db.models.Logs = db.connection.Collection.extend({
-		model: db.models.Messages
+		model: db.models.Log
 	});
 
 	module.exports = db;
