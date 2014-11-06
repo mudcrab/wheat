@@ -3,6 +3,7 @@ var users = require('./users.js');
 var irc = require('irc');
 var db = require('./db.js');
 var helper = require('./helpers/socket_helper.js')
+var Moment = require('moment-timezone');
 
 var User = function(id, email, socket, encStr)
 {
@@ -21,6 +22,18 @@ var User = function(id, email, socket, encStr)
 	config.events.on('socket.' + this.encoded + '.irc.servers', this.servers, this);
 	config.events.on('socket.' + this.encoded + '.irc.channels', this.getChannels, this);
 	config.events.on('socket.' + this.encoded + '.irc.names', this.names, this);
+};
+
+User.prototype.close = function()
+{
+	config.events.off('socket.' + this.encoded + '.irc.connect');
+	config.events.off('socket.' + this.encoded + '.irc.disconnect');
+	config.events.off('socket.' + this.encoded + '.irc.join');
+	config.events.off('socket.' + this.encoded + '.irc.part');
+	config.events.off('socket.' + this.encoded + '.irc.say');
+	config.events.off('socket.' + this.encoded + '.irc.servers');
+	config.events.off('socket.' + this.encoded + '.irc.channels');
+	config.events.off('socket.' + this.encoded + '.irc.names');
 };
 
 User.prototype.initServers = function(cb)
@@ -90,6 +103,24 @@ User.prototype.addIrcListeners = function(id, name, uid)
 					to: data.to,
 					message: data.message
 				}));
+
+				db.models.Channel.forge({
+					name: data.to,
+					server_id: id
+				})
+				.fetch()
+				.then(function(channelData) {
+					db.models.Log.forge({
+						from: data.from,
+						to: data.to,
+						message: data.message,
+						date: Moment.tz("Europe/Tallinn").format("YYYY-MM-DD HH:MM:ss"),
+						server_id: id,
+						channel_id: 4,
+						user_id: uid
+					})
+					.save();
+				});
 			}
 			catch(e)
 			{
@@ -383,9 +414,9 @@ User.prototype.isServerConnected = function(id, name, uid)
 	return connected;
 }
 
-User.prototype.getChannel = function(server, channel)
+User.prototype.getChannel = function(channelName, serverId)
 {
-
+	// 
 };
 
 User.prototype.addModel = function(model)
