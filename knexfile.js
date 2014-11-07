@@ -11,6 +11,9 @@ module.exports = {
       password: config.db.password,
       database: config.db.db,
       charset: 'utf8'
+    },
+    pool: {
+      max: 1
     }
   },
 
