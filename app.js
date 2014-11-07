@@ -23,6 +23,12 @@ config.logger.info("Started (%s) socket server on %d", config.env, config.app.po
 
 users.init();
 
+app.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
 app.get('/', function(req, res) {
     res.send('hi');
 });
@@ -55,7 +61,15 @@ app.get('/auth/:username/:password', function(req, res) {
 	});
 });
 
-app.get('/messages/:server/:channel/:hash', function(req, res) {
+if(process.env.NODE_ENV === 'development')
+{
+	config.apiClients["9db68c4216a29a24cd93a7df5ea15bb8b4abb411"] = {
+		id: 1,
+		email: 'jevgeni@pitfire.eu'
+	};
+}
+
+app.get('/messages/:server/:channel/:limit/:hash', function(req, res) {
 	var ret = {
 		status: false
 	};
@@ -65,10 +79,12 @@ app.get('/messages/:server/:channel/:hash', function(req, res) {
 		var userData = config.apiClients[req.params.hash];
 		ret.status = true;
 
-		db.models.Logs.forge({
-			server_id: req.params.server,
-			channel_id: req.params.channel,
-			user_id: userData.id
+		new db.models.Logs()
+		.query(function(qb) {
+			qb.where('server_id', '=', req.params.server)
+			.andWhere('channel_id', '=', req.params.channel)
+			.orderBy('id', 'ASC')
+			.limit(parseInt(req.params.limit))
 		})
 		.fetch()
 		.then(function(logs) {
@@ -76,6 +92,8 @@ app.get('/messages/:server/:channel/:hash', function(req, res) {
 			res.json(ret);
 		});
 	}
+	else
+		res.json(ret);
 
 });
 
