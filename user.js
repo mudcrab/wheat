@@ -116,7 +116,7 @@ User.prototype.addIrcListeners = function(id, name, uid)
 						message: data.message,
 						date: Moment.tz("Europe/Tallinn").format("YYYY-MM-DD HH:MM:ss"),
 						server_id: id,
-						channel_id: 4,
+						channel_id: channelData.get('id'),
 						user_id: uid
 					})
 					.save();
@@ -317,7 +317,17 @@ User.prototype.part = function(data)
 	.then(function(channel) {
 		if(channel !== null)
 		{
-			channel.destroy();
+			db.models.Logs.forge()
+			.query(function(qb) {
+				qb.where('channel_id', '=', channel.get('id'));
+			})
+			.fetch()
+			.then(function(logs) {
+				logs.each(function(log) {
+					log.destroy();
+				});
+				channel.destroy();
+			});
 		}
 	});
 };
@@ -362,12 +372,17 @@ User.prototype.channels = function(serverName)
 		_channels.each(function(channel) {
 			channels.push({ 
 				channel: channel.get('name'),
-				nick: server.get('nick')
+				nick: server.get('nick'),
+				channel_id: channel.get('id')
 			});
 		});
 
 		try {
-			self.socket.send( helper.socketData('irc.channels', { serverName: serverName, channels: channels }) );
+			self.socket.send( helper.socketData('irc.channels', { 
+				serverName: serverName, 
+				channels: channels,
+				server_id: server.get('id')
+			}) );
 		} catch(e) {}
 	});
 };
