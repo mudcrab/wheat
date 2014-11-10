@@ -73,7 +73,7 @@ app.get('/messages/:server/:channel/:limit/:hash', function(req, res) {
 	var ret = {
 		status: false
 	};
-
+	
 	if(config.apiClients.hasOwnProperty(req.params.hash))
 	{
 		var userData = config.apiClients[req.params.hash];

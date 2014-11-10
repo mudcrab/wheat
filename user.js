@@ -187,10 +187,18 @@ User.prototype.addIrcListeners = function(id, name, uid)
 	config.events.on('irc.' + sId + '.pm', function(data) {
 		try
 		{
+			self.join({
+				response: {
+					name: data.server,
+					channel: data.nick
+				}
+			});
+
 			self.socket.send(helper.socketData('irc.pm', data));
 		}
 		catch(e)
 		{
+			console.log(e)
 			config.logger.error('Socket not opened');
 		}
 	});
@@ -211,9 +219,7 @@ User.prototype.connect = function(data)
 {
 	var self = this;
 	this.updateServers(function() {
-		var server = self.getServer(data.response.name);
-
-	console.log(server)
+	var server = self.getServer(data.response.name);
 
 	if(server === null)
 	{
